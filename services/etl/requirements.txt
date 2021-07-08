@@ -1,0 +1,4 @@
+asyncio
+asyncio_redis==0.16.0
+redis==3.5.3
+awswrangler==2.9.0

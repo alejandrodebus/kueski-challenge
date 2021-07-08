@@ -1,0 +1,99 @@
+version: "3"
+services:
+  fastapi:
+    container_name: "fastapi"
+    restart: "always"
+    build: services/fastapi/app
+    volumes:
+      - ./services/fastapi/app:/app
+    ports:
+      - 80:80
+
+  redis:
+    image: redis:latest
+    volumes:
+      - ./config/redis.conf:/redis.conf
+    environment:
+      - REDIS_HOST=redis
+    ports:
+      - "6379:6379"
+    command: [ "redis-server", "/redis.conf" ]
+
+  minio:
+    container_name: "minio"
+    restart: "always"
+    image: minio/minio
+    env_file:
+        - ./config/minio.env
+    volumes:
+        - minio_volume:/data
+    ports:
+        - 9000:9000
+    command: server /data
+
+  jupyter:
+    build: ./services/jupyter-spark/
+    container_name: "jupyter-spark"
+    env_file:
+      - ./config/jupyter.env
+      - ./config/minio.env
+    restart: always
+    ports:
+      - 8888:8888
+    volumes:
+      - ./notebooks:/home/jovyan/work
+    entrypoint: sh -c 'start-notebook.sh --NotebookApp.token=$$JUPYTER_PASSWORD'
+
+  postgres:
+
+    #image: postgres
+    build: services/postgresql
+    restart: "always"
+    container_name: postgres
+    env_file:
+      - ./config/postgres.env
+      - ./config/airflow_database.env
+      - ./config/shared_database.env
+    volumes:
+      - postgres_volume:/var/lib/postgresql/data/
+#      - ./services/postgresql/init/:/docker-entrypoint-initdb.d/
+    ports:
+      - 5432:5432
+    restart: "always"
+
+  pgadmin:
+    container_name: "pgadmin"
+    image: dpage/pgadmin4
+    env_file:
+      - ./config/pgadmin.env
+    volumes:
+        - pgadmin_volume:/root/.pgadmin
+    ports:
+      - 5050:80
+    restart: "always"
+
+  airflow:
+    container_name: "airflow"
+    restart: "always"
+    build: services/airflow
+    env_file:
+      - ./config/airflow_container.env
+      - ./config/minio.env
+      - ./config/shared_database.env
+    volumes:
+      - ./services/airflow/dags/:/usr/local/airflow/dags
+      - ./notebooks:/usr/local/airflow/data
+    ports:
+      - 7777:8080
+    command: webserver
+
+  etl:
+    container_name: "etl_data"
+    build: services/etl
+
+volumes:
+  postgres_volume:
+  minio_volume:
+  pgadmin_volume:
+
+
